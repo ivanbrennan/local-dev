@@ -11,6 +11,8 @@ in with pkgs; rec {
   shell = mkShell {
     buildInputs = [
       helloApp
+      kind
+      kubectl
     ];
   };
 
