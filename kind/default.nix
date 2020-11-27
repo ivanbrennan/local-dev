@@ -15,4 +15,10 @@ in with pkgs; rec {
   };
 
   helloApp = callPackage ./hello-app {};
+
+  appImage = dockerTools.buildLayeredImage {
+    name = "hello-app";
+    tag = "latest";
+    config.Cmd = [ "${helloApp}/bin/hello-app" ];
+  };
 }
