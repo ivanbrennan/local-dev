@@ -15,9 +15,17 @@ let
     inherit sha256;
   }) { inherit pkgs; };
 
+  kind-config = ./kind-config.yaml;
+
   manifest = kubenix.buildResources {
     configuration = import ./configuration.nix;
   };
+
+  ingress-controller-manifest = let
+    repo = "https://raw.githubusercontent.com/kubernetes/ingress-nginx";
+    rev = "68c57386d0f2bed815782d60e9714fc0ff7550af";
+    path = "deploy/static/provider/kind/deploy.yaml";
+  in builtins.fetchurl "${repo}/${rev}/${path}";
 
 in with pkgs; rec {
   shell = mkShell {
@@ -42,7 +50,7 @@ in with pkgs; rec {
     set -euo pipefail
 
     ${kind}/bin/kind delete cluster || true
-    ${kind}/bin/kind create cluster
+    ${kind}/bin/kind create cluster --config ${kind-config}
 
     echo "Loading the docker image inside the kind docker container ..."
     ( tmpfile=$(mktemp -t appImage.XXXXXX)
@@ -54,5 +62,12 @@ in with pkgs; rec {
     echo "Applying the configuration ..."
     ${jq}/bin/jq "." ${manifest}
     ${kubectl}/bin/kubectl --context kind-kind apply -f ${manifest}
+
+    echo "Creating ingress-controller ..."
+    ${kubectl}/bin/kubectl --context kind-kind apply -f ${ingress-controller-manifest}
+    ${kubectl}/bin/kubectl --context kind-kind --namespace ingress-nginx wait \
+        --for=condition=ready pod \
+        --selector=app.kubernetes.io/component=controller \
+        --timeout=120s
   '';
 }

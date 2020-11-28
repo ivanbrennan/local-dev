@@ -40,4 +40,21 @@ in
       spec.selector.app = helloApp.label;
       spec.ports."${toString helloApp.port}".targetPort = helloApp.port;
     };
+
+    kubernetes.resources.ingresses.hello-ingress = {
+      metadata.labels.app = helloApp.label;
+      spec.rules = [
+        {
+          http.paths = [
+            {
+              path = "/";
+              backend = {
+                serviceName = helloApp.label;
+                servicePort = helloApp.port;
+              };
+            }
+          ];
+        }
+      ];
+    };
   }
