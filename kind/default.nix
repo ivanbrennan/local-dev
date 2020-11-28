@@ -34,6 +34,7 @@ in with pkgs; rec {
       kind
       kubectl
       deploy-to-kind
+      apply-deployment
     ];
   };
 
@@ -52,6 +53,20 @@ in with pkgs; rec {
     ${kind}/bin/kind delete cluster || true
     ${kind}/bin/kind create cluster --config ${kind-config}
 
+    apply-deployment
+
+    echo "Creating ingress-controller ..."
+    ${kubectl}/bin/kubectl --context kind-kind apply -f ${ingress-controller-manifest}
+    ${kubectl}/bin/kubectl --context kind-kind --namespace ingress-nginx wait \
+        --for=condition=ready pod \
+        --selector=app.kubernetes.io/component=controller \
+        --timeout=120s
+  '';
+
+  apply-deployment = writeScriptBin "apply-deployment" ''
+    #! ${runtimeShell}
+    set -euo pipefail
+
     echo "Loading the docker image inside the kind docker container ..."
     ( tmpfile=$(mktemp -t appImage.XXXXXX)
       trap "rm -f '$tmpfile'" EXIT INT TERM
@@ -62,12 +77,5 @@ in with pkgs; rec {
     echo "Applying the configuration ..."
     ${jq}/bin/jq "." ${manifest}
     ${kubectl}/bin/kubectl --context kind-kind apply -f ${manifest}
-
-    echo "Creating ingress-controller ..."
-    ${kubectl}/bin/kubectl --context kind-kind apply -f ${ingress-controller-manifest}
-    ${kubectl}/bin/kubectl --context kind-kind --namespace ingress-nginx wait \
-        --for=condition=ready pod \
-        --selector=app.kubernetes.io/component=controller \
-        --timeout=120s
   '';
 }
